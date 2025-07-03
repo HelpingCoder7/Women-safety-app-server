@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: django-backend
+    name: django-app
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn Appserver.wsgi:application
