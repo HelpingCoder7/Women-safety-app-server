@@ -1,3 +1,5 @@
+from datetime import datetime
+import json
 from rest_framework.response import Response
 import random
 from rest_framework import status
@@ -6,7 +8,7 @@ from .models import user_collection
 import random
 from django.conf import settings
 from twilio.rest import Client
-
+from bson.json_util import dumps
 
 # Create your views here.
 @api_view(['get'])
@@ -66,22 +68,68 @@ def register_user(request):
 
 
 
-@api_view(['post'])
+@api_view(['POST'])
 def loginuser(request):
-   
-   data = request.data
-   
-   find_user =user_collection.find({"phone_number":data.get("phone_number")},{"password":data.get("password")})
+    data = request.data
+    phone = data.get("phone_number")
+    password = data.get("password")
+    
+    print(phone,password)
 
-   while True:
-      
-      if find_user is None:
-        return Response(status=status.HTTP_404_NOT_FOUND)
-      else:
-         return Response(status=status.HTTP_302_FOUND)
+    if not phone or not password:
+        return Response({"error": "Missing fields"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Correct usage
+    user = user_collection.find_one({"phone_number": phone})
+
+    if not user:
+        return Response({"error": "User not found{phone}"}, status=status.HTTP_404_NOT_FOUND)
+
+    if user.get("password") != password:
+        return Response({"error": "Incorrect password"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    return Response({"message": "Login successful"}, status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET'])
+def get_all_users(request):
+    try:
+        users_cursor = user_collection.find()  # fetch all users
+        users_list = list(users_cursor)  # convert cursor to list
+        users_json = json.loads(dumps(users_list))  # convert BSON to JSON-serializable
+
+        return Response({"users": users_json}, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+     
+     
+
+@api_view(['POST'])
+def add_user(request):
+    data = request.data
+
+    phone_number = data.get("phone_number")
    
+    password = data.get("password")  
 
+    if not phone_number or not password:
+        return Response({"error": "Missing required fields."}, status=status.HTTP_400_BAD_REQUEST)
 
-# @api_view(['post'])
-# def send_sms(request):
-#     pass
+    existing_user = user_collection.find_one({"phone_number": phone_number})
+    if existing_user:
+        return Response({"error": "User already exists."}, status=status.HTTP_409_CONFLICT)
+
+    new_user = {
+        "phone_number": phone_number,
+        "password": password,
+        
+    }
+
+    result = user_collection.insert_one(new_user)
+
+    return Response({
+        "message": "User added successfully.",
+        "user_id": str(result.inserted_id)
+    }, status=status.HTTP_201_CREATED)
