@@ -6,7 +6,7 @@ services:
     startCommand: gunicorn Appserver.wsgi:application
     envVars:
       - key: DJANGO_SETTINGS_MODULE
-        value: myproject.settings
+        value: Appserver.settings
       - key: SECRET_KEY
         generateValue: true
       - key: DEBUG
